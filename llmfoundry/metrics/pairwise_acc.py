@@ -213,9 +213,6 @@ class PairwiseTrajectoryAccuracy(Metric):
             # Parse the strings as JSON
             target_json = self._parse_json(target_str)
             preds_json = self._parse_json(preds_str)
-
-            print(target_json)
-            print(preds_json)
             
             # If either cannot be jsonized, skip this example
             if target_json is None or preds_json is None:
