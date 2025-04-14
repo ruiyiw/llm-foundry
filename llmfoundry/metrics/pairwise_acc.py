@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import torch
-from torchmetrics import Metric
+# from torchmetrics import Metric
+from llmfoundry.eval.metrics.nlp import InContextLearningMetric
 import json
 import copy
 from typing import List, Dict, Any
@@ -13,7 +14,7 @@ __all__ = [
 ]
 
 
-class PairwiseSearchAccuracy(Metric):
+class PairwiseSearchAccuracy(InContextLearningMetric):
     """
     Computes exact match for structured JSON BasicSearchOutput with specific fields.
     
