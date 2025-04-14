@@ -14,7 +14,8 @@ __all__ = [
 
 
 class PairwiseSearchAccuracy(Metric):
-    """Computes exact match for structured JSON BasicSearchOutput with specific fields.
+    """
+    Computes exact match for structured JSON BasicSearchOutput with specific fields.
     
     This metric evaluates if the predicted JSON structure matches the ground truth JSON structure.
     In particular, it checks if both 'chosen_state' and 'chosen_action' fields match exactly.
@@ -55,7 +56,6 @@ class PairwiseSearchAccuracy(Metric):
         """
         try:
             # Find JSON-like structure in the text
-            # This handles cases where the model outputs additional text
             text = text.strip()
             start_idx = text.find('{')
             end_idx = text.rfind('}')
@@ -79,50 +79,73 @@ class PairwiseSearchAccuracy(Metric):
         self,
         batch: Dict[str, Any],
         outputs: List[str],
-        labels: List[str],
+        labels: List[List[str]],  # Changed to match the original code's expectation
     ):
         """Update metric states based on predictions and ground truth.
         
         Args:
             batch: The input batch (not used in this metric)
             outputs: List of string outputs from the model, expected to contain JSON
-            labels: List of ground truth strings, expected to contain JSON
+            labels: List of lists of ground truth strings, expected to contain JSON
+                   Each inner list contains alternative correct answers
         """
         metric_result_dict = copy.deepcopy(self.metric_result_dict)
         
-        for output, label in zip(outputs, labels):
-            # Parse predicted output and ground truth label
+        for output, label_list in zip(outputs, labels):
+            # Parse predicted output
             parsed_output = self._parse_json(output)
-            parsed_label = self._parse_json(label)
-            
             metric_result_dict['parsed_output'].append(parsed_output)
-            metric_result_dict['parsed_label'].append(parsed_label)
             
-            # Check if parsing was successful
-            if not parsed_output or not parsed_label:
+            # A sample is considered correct if it matches any of the provided labels
+            is_correct = False
+            parsed_labels = []
+            
+            # Try to parse all provided labels
+            for label in label_list:
+                parsed_label = self._parse_json(label)
+                parsed_labels.append(parsed_label)
+                
+                # Check if both fields match exactly with any label
+                if parsed_output and parsed_label and \
+                   parsed_output.get('chosen_state') == parsed_label.get('chosen_state') and \
+                   parsed_output.get('chosen_action') == parsed_label.get('chosen_action'):
+                    is_correct = True
+                    break
+            
+            metric_result_dict['parsed_label'].append(parsed_labels)
+            
+            # Check if parsing was successful for output
+            if not parsed_output:
                 self.total += torch.tensor(1.0)
                 metric_result_dict['result'].append(0)
-                if not parsed_output:
-                    metric_result_dict['error_type'].append('invalid_output_json')
-                else:
-                    metric_result_dict['error_type'].append('invalid_label_json')
+                metric_result_dict['error_type'].append('invalid_output_json')
+                continue
+                
+            # Check if any labels were valid
+            if all(not label for label in parsed_labels):
+                self.total += torch.tensor(1.0)
+                metric_result_dict['result'].append(0)
+                metric_result_dict['error_type'].append('invalid_label_json')
                 continue
             
-            # Check if both fields match exactly
-            if (parsed_output['chosen_state'] == parsed_label['chosen_state'] and
-                parsed_output['chosen_action'] == parsed_label['chosen_action']):
+            # Record the result
+            if is_correct:
                 self.correct += torch.tensor(1.0)
                 metric_result_dict['result'].append(1)
                 metric_result_dict['error_type'].append(None)
             else:
                 metric_result_dict['result'].append(0)
-                if parsed_output['chosen_state'] != parsed_label['chosen_state']:
-                    if parsed_output['chosen_action'] != parsed_label['chosen_action']:
-                        metric_result_dict['error_type'].append('both_mismatch')
+                # Determine error type based on first label for simplicity
+                if parsed_labels and parsed_labels[0]:
+                    if parsed_output.get('chosen_state') != parsed_labels[0].get('chosen_state'):
+                        if parsed_output.get('chosen_action') != parsed_labels[0].get('chosen_action'):
+                            metric_result_dict['error_type'].append('both_mismatch')
+                        else:
+                            metric_result_dict['error_type'].append('state_mismatch')
                     else:
-                        metric_result_dict['error_type'].append('state_mismatch')
+                        metric_result_dict['error_type'].append('action_mismatch')
                 else:
-                    metric_result_dict['error_type'].append('action_mismatch')
+                    metric_result_dict['error_type'].append('comparison_error')
             
             self.total += torch.tensor(1.0)
         
