@@ -90,9 +90,12 @@ class PairwiseSearchAccuracy(Metric):
             # Mask out the ignored indices for the target
             target_mask = target[i] != self.ignore_index
             target_tokens = target[i][target_mask]
+
+            preds_mask = preds[i] != self.ignore_index
+            preds_tokens = preds[i][preds_mask]
             
             target_str = self.tokenizer.decode(target_tokens, skip_special_tokens=True)
-            pred_str = self.tokenizer.decode(preds[i], skip_special_tokens=True)
+            pred_str = self.tokenizer.decode(preds_tokens, skip_special_tokens=True)
 
             print(target_str)
             print(pred_str)
