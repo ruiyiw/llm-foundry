@@ -69,6 +69,13 @@ class PairwiseSearchAccuracy(Metric):
             return data
         except json.JSONDecodeError:
             return None
+        
+    def _search_compare(self, target_str: str, preds_str: str) -> float:
+        return 1.0
+
+    def _trajectory_compare(self, target_str: str, preds_str: str) -> float:
+        return 1.0
+
 
     def update(self, preds: torch.Tensor, target: torch.Tensor):
         """Updates the internal state with results from a new batch.
@@ -90,8 +97,7 @@ class PairwiseSearchAccuracy(Metric):
             # Decode the target and prediction tensors to strings
             # Mask out the ignored indices for the target
             target_mask = target[i] != self.ignore_index
-            # target_tokens = target[i][target_mask]
-            target_tokens = target[i]
+            target_tokens = target[i][target_mask]
 
             preds_mask = preds[i] != self.ignore_index
             preds_tokens = preds[i][preds_mask]
@@ -99,7 +105,6 @@ class PairwiseSearchAccuracy(Metric):
             target_str = self.tokenizer.decode(target_tokens, skip_special_tokens=True)
             pred_str = self.tokenizer.decode(preds_tokens, skip_special_tokens=True)
 
-            print(target_str)
             print(preds_tokens[-1])
             print(pred_str[-1])
             print(target_tokens[-1])
