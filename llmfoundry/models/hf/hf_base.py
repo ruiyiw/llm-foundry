@@ -99,6 +99,7 @@ class BaseHuggingFaceModel(HuggingFaceModel):
 
         metrics, eval_metrics = self.build_metrics(
             use_train_metrics=use_train_metrics,
+            tokenizer=tokenizer,
             additional_train_metrics=additional_train_metrics,
             additional_eval_metrics=additional_eval_metrics,
         )
@@ -171,6 +172,7 @@ class BaseHuggingFaceModel(HuggingFaceModel):
     @classmethod
     def build_metrics(
         cls,
+        tokenizer: Optional[PreTrainedTokenizerBase], 
         use_train_metrics: bool,
         additional_train_metrics: Optional[list[str]] = None,
         additional_eval_metrics: Optional[list[str]] = None,
@@ -190,15 +192,34 @@ class BaseHuggingFaceModel(HuggingFaceModel):
         train_metric_names = list(
             cls.default_train_metrics,
         ) + (additional_train_metrics or [])
-        train_metrics = [
-            build_metric(metric, {}) for metric in train_metric_names
-        ] if use_train_metrics else []
+
+        train_metrics  = []
+        if use_train_metrics:
+            for metric in train_metric_names:
+                if metric == "pairwise_search_accuracy":
+                    print("*** hf_base entry point ***")
+                    train_metrics.append(build_metric(metric, {'tokenizer': tokenizer}))
+                else:
+                    train_metrics.append(build_metric(metric, {}))
+
+        # train_metrics = [
+        #     build_metric(metric, {}) for metric in train_metric_names
+        # ] if use_train_metrics else []
+
         eval_metric_names = list(
             cls.default_eval_metrics,
         ) + (additional_eval_metrics or [])
-        eval_metrics = [
-            build_metric(metric, {}) for metric in eval_metric_names
-        ]
+
+        eval_metrics  = []
+        for metric in eval_metric_names:
+            if metric == "pairwise_search_accuracy":
+                print("*** hf_base entry point ***")
+                eval_metrics.append(build_metric(metric, {'tokenizer': tokenizer}))
+            else:
+                eval_metrics.append(build_metric(metric, {}))
+        # eval_metrics = [
+        #     build_metric(metric, {}) for metric in eval_metric_names
+        # ]
 
         return train_metrics, eval_metrics
 

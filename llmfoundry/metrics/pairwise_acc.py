@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import torch
-# from torchmetrics import Metric
-from llmfoundry.eval.metrics.nlp import InContextLearningMetric
+from torchmetrics import Metric
+from transformers import PreTrainedTokenizerBase
+
 import json
-import copy
-from typing import List, Dict, Any
+from typing import Dict, Any, Optional
 
 
 __all__ = [
@@ -14,7 +14,7 @@ __all__ = [
 ]
 
 
-class PairwiseSearchAccuracy(InContextLearningMetric):
+class PairwiseSearchAccuracy(Metric):
     """
     Computes exact match for structured JSON BasicSearchOutput with specific fields.
     
@@ -28,132 +28,105 @@ class PairwiseSearchAccuracy(InContextLearningMetric):
         total (float): The number of total instances that were predicted.
     
     Args:
+        tokenizer (PreTrainedTokenizerBase): The tokenizer used to decode the token IDs into text.
+        ignore_index (int, optional): The value in the target to be ignored during evaluation.
+            Default: ``-100``.
         dist_sync_on_step (bool, optional): Synchronize metric state across processes at
             each forward() before returning the value at the step. Default: ``False``.
     """
-    
-    # Make torchmetrics call update only once
+
+    # Ensures torchmetrics calls update only once
     full_state_update = False
-    
-    def __init__(self, dist_sync_on_step: bool = False):
+
+    def __init__(
+        self,
+        tokenizer: PreTrainedTokenizerBase,
+        ignore_index: int = -100,
+        dist_sync_on_step: bool = False,
+    ):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
+        self.tokenizer = tokenizer
+        self.ignore_index = ignore_index
         self.add_state(
             'correct',
-            default=torch.tensor(0.),
+            default=torch.tensor(0),
             dist_reduce_fx='sum',
         )
-        self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
-        self.metric_result_dict = {
-            'parsed_output': [],
-            'parsed_label': [],
-            'result': [],
-            'error_type': [],
-        }
-    
-    def _parse_json(self, text: str) -> Dict:
-        """Try to parse a string as JSON and extract the required fields.
+        self.add_state(
+            'total',
+            default=torch.tensor(0),
+            dist_reduce_fx='sum',
+        )
+
+    def _parse_json(self, text: str) -> Optional[Dict[str, Any]]:
+        """Parse a string as JSON and return the resulting dictionary.
         
-        Returns a dictionary with the parsed fields or an empty dict if parsing fails.
+        Returns None if the string cannot be parsed as valid JSON.
         """
         try:
-            # Find JSON-like structure in the text
-            text = text.strip()
-            start_idx = text.find('{')
-            end_idx = text.rfind('}')
-            
-            if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
-                json_str = text[start_idx:end_idx + 1]
-                json_obj = json.loads(json_str)
-                
-                # Check if required fields exist
-                if 'chosen_state' in json_obj and 'chosen_action' in json_obj:
-                    return {
-                        'chosen_state': str(json_obj['chosen_state']).strip(),
-                        'chosen_action': str(json_obj['chosen_action']).strip()
-                    }
-            
-            return {}
+            data = json.loads(text)
+            return data
         except json.JSONDecodeError:
-            return {}
-    
-    def update(
-        self,
-        batch: Dict[str, Any],
-        outputs: List[str],
-        labels: List[List[str]],  # Changed to match the original code's expectation
-    ):
-        """Update metric states based on predictions and ground truth.
-        
+            return None
+
+    def update(self, preds: torch.Tensor, target: torch.Tensor):
+        """Updates the internal state with results from a new batch.
+
         Args:
-            batch: The input batch (not used in this metric)
-            outputs: List of string outputs from the model, expected to contain JSON
-            labels: List of lists of ground truth strings, expected to contain JSON
-                   Each inner list contains alternative correct answers
+            preds (~torch.Tensor): The predictions from the model, a Tensor of token IDs.
+            target (~torch.Tensor): A Tensor of ground-truth token IDs.
         """
-        metric_result_dict = copy.deepcopy(self.metric_result_dict)
+        print("*** entrypoint: pairwise_accuracy ***")
+        print(preds)
+        print(preds.shape)
+        # Convert logits to predicted token indices if necessary
+        if preds.dim() > 2:
+            preds = torch.argmax(preds, dim=-1)
         
-        for output, label_list in zip(outputs, labels):
-            # Parse predicted output
-            parsed_output = self._parse_json(output)
-            metric_result_dict['parsed_output'].append(parsed_output)
+        batch_size = preds.size(0)
+        
+        for i in range(batch_size):
+            # Decode the target and prediction tensors to strings
+            # Mask out the ignored indices for the target
+            target_mask = target[i] != self.ignore_index
+            target_tokens = target[i][target_mask]
             
-            # A sample is considered correct if it matches any of the provided labels
-            is_correct = False
-            parsed_labels = []
+            target_str = self.tokenizer.decode(target_tokens, skip_special_tokens=True)
+            pred_str = self.tokenizer.decode(preds[i], skip_special_tokens=True)
+
+            print(target_str)
+            print(pred_str)
             
-            # Try to parse all provided labels
-            for label in label_list:
-                parsed_label = self._parse_json(label)
-                parsed_labels.append(parsed_label)
-                
-                # Check if both fields match exactly with any label
-                if parsed_output and parsed_label and \
-                   parsed_output.get('chosen_state') == parsed_label.get('chosen_state') and \
-                   parsed_output.get('chosen_action') == parsed_label.get('chosen_action'):
-                    is_correct = True
-                    break
+            # Parse the strings as JSON
+            target_json = self._parse_json(target_str)
+            pred_json = self._parse_json(pred_str)
+
+            print(target_json)
+            print(pred_json)
             
-            metric_result_dict['parsed_label'].append(parsed_labels)
-            
-            # Check if parsing was successful for output
-            if not parsed_output:
-                self.total += torch.tensor(1.0)
-                metric_result_dict['result'].append(0)
-                metric_result_dict['error_type'].append('invalid_output_json')
+            # If prediction cannot be jsonized, assign zero score
+            if pred_json is None:
+                self.total += 1
                 continue
                 
-            # Check if any labels were valid
-            if all(not label for label in parsed_labels):
-                self.total += torch.tensor(1.0)
-                metric_result_dict['result'].append(0)
-                metric_result_dict['error_type'].append('invalid_label_json')
-                continue
+            # Check if both required fields exist
+            if (target_json and 'chosen_state' in target_json and 'chosen_action' in target_json and
+                pred_json and 'chosen_state' in pred_json and 'chosen_action' in pred_json):
+                
+                # Compare the values of chosen_state and chosen_action
+                if (target_json['chosen_state'] == pred_json['chosen_state'] and 
+                    target_json['chosen_action'] == pred_json['chosen_action']):
+                    self.correct += 1
             
-            # Record the result
-            if is_correct:
-                self.correct += torch.tensor(1.0)
-                metric_result_dict['result'].append(1)
-                metric_result_dict['error_type'].append(None)
-            else:
-                metric_result_dict['result'].append(0)
-                # Determine error type based on first label for simplicity
-                if parsed_labels and parsed_labels[0]:
-                    if parsed_output.get('chosen_state') != parsed_labels[0].get('chosen_state'):
-                        if parsed_output.get('chosen_action') != parsed_labels[0].get('chosen_action'):
-                            metric_result_dict['error_type'].append('both_mismatch')
-                        else:
-                            metric_result_dict['error_type'].append('state_mismatch')
-                    else:
-                        metric_result_dict['error_type'].append('action_mismatch')
-                else:
-                    metric_result_dict['error_type'].append('comparison_error')
-            
-            self.total += torch.tensor(1.0)
-        
-        return metric_result_dict
-    
-    def compute(self):
-        """Compute the accuracy metric."""
+            self.total += 1
+
+    def compute(self) -> torch.Tensor:
+        """Aggregate the state over all processes to compute the metric.
+
+        Returns:
+            The accuracy as a :class:`~torch.Tensor`.
+        """
         assert isinstance(self.correct, torch.Tensor)
         assert isinstance(self.total, torch.Tensor)
-        return self.correct / self.total if self.total > 0 else torch.tensor(0.)
+        
+        return self.correct.float() / self.total if self.total > 0 else torch.tensor(0.0)
