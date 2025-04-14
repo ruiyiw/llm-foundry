@@ -100,31 +100,30 @@ class PairwiseSearchAccuracy(Metric):
             # Create mask for non-padding tokens in predictions
             preds_mask = preds[i] != self.tokenizer.pad_token_id
             preds_tokens = preds[i][preds_mask]
+            print(preds_mask)
+            print(preds_tokens[-1])
             
             target_str = self.tokenizer.decode(target_tokens, skip_special_tokens=True)
-            pred_str = self.tokenizer.decode(preds_tokens, skip_special_tokens=True)
+            preds_str = self.tokenizer.decode(preds_tokens, skip_special_tokens=True)
 
-            print(len(target_mask))
-            print(len(target_tokens))
-            print(pred_str)
             print(self.tokenizer.pad_token_id)
             
             # Parse the strings as JSON
             target_json = self._parse_json(target_str)
-            pred_json = self._parse_json(pred_str)
+            preds_json = self._parse_json(preds_str)
             
             # If prediction cannot be jsonized, assign zero score
-            if pred_json is None:
+            if preds_json is None:
                 self.total += 1
                 continue
                 
             # Check if both required fields exist
             if (target_json and 'chosen_state' in target_json and 'chosen_action' in target_json and
-                pred_json and 'chosen_state' in pred_json and 'chosen_action' in pred_json):
+                preds_json and 'chosen_state' in preds_json and 'chosen_action' in preds_json):
                 
                 # Compare the values of chosen_state and chosen_action
-                if (target_json['chosen_state'] == pred_json['chosen_state'] and 
-                    target_json['chosen_action'] == pred_json['chosen_action']):
+                if (target_json['chosen_state'] == preds_json['chosen_state'] and 
+                    target_json['chosen_action'] == preds_json['chosen_action']):
                     self.correct += 1
             
             self.total += 1
