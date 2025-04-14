@@ -210,7 +210,8 @@ def _validate_chat_formatted_example(example: ChatFormattedDict):
             raise IncorrectMessageKeyQuantityError(list(message.keys()))
         if message[role_key] not in _ALLOWED_ROLES:
             raise InvalidRoleError(message[role_key], _ALLOWED_ROLES)
-        if not isinstance(message[content_key], str):
+        if not isinstance(message[content_key], (list, str)):
+            # this validation check accepts text-only as well as multimodal messages for chat-enabled models
             raise InvalidContentTypeError(type(message[content_key]))
         if last_message_role is not None and last_message_role == message[
             role_key]:
@@ -715,8 +716,9 @@ class StreamingFinetuningDataset(StreamingDataset):
                 sample['labels'] = sample['labels'][:self.max_seq_len].tolist(
                 ).copy()
             else:
+                input_ids_type = type(sample['input_ids'])
                 raise ValueError(
-                    f'Expect input_ids to be bytes or numpy.ndarray type, but got {type(sample["input_ids"])}',
+                    f'Expect input_ids to be bytes or numpy.ndarray type, but got {input_ids_type}',
                 )
             # Convert to latest format by wrapping sample as a "turn"
             return {'turns': [sample]}
