@@ -77,13 +77,13 @@ class PairwiseSearchAccuracy(Metric):
             target (~torch.Tensor): A Tensor of ground-truth token IDs.
         """
         print("*** entrypoint: pairwise_accuracy ***")
-        print(preds)
         print(preds.shape)
         # Convert logits to predicted token indices if necessary
         if preds.dim() > 2:
             preds = torch.argmax(preds, dim=-1)
         
         batch_size = preds.size(0)
+        print(batch_size)
         
         for i in range(batch_size):
             # Decode the target and prediction tensors to strings
@@ -100,9 +100,6 @@ class PairwiseSearchAccuracy(Metric):
             # Parse the strings as JSON
             target_json = self._parse_json(target_str)
             pred_json = self._parse_json(pred_str)
-
-            print(target_json)
-            print(pred_json)
             
             # If prediction cannot be jsonized, assign zero score
             if pred_json is None:
