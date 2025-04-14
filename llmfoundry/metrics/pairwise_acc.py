@@ -98,7 +98,7 @@ class PairwiseSearchAccuracy(Metric):
             target_tokens = target[i][target_mask]
 
             # Create mask for non-padding tokens in predictions
-            preds_mask = preds[i] != self.pad_token_id
+            preds_mask = preds[i] != self.tokenizer.pad_token_id
             preds_tokens = preds[i][preds_mask]
             
             target_str = self.tokenizer.decode(target_tokens, skip_special_tokens=True)

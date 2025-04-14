@@ -197,7 +197,6 @@ class BaseHuggingFaceModel(HuggingFaceModel):
         if use_train_metrics:
             for metric in train_metric_names:
                 if metric == "pairwise_search_accuracy":
-                    print("*** hf_base entry point ***")
                     train_metrics.append(build_metric(metric, {'tokenizer': tokenizer}))
                 else:
                     train_metrics.append(build_metric(metric, {}))
@@ -213,7 +212,6 @@ class BaseHuggingFaceModel(HuggingFaceModel):
         eval_metrics  = []
         for metric in eval_metric_names:
             if metric == "pairwise_search_accuracy":
-                print("*** hf_base entry point ***")
                 eval_metrics.append(build_metric(metric, {'tokenizer': tokenizer}))
             else:
                 eval_metrics.append(build_metric(metric, {}))
