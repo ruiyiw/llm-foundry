@@ -11,6 +11,7 @@ from typing import Dict, Any, Optional
 
 __all__ = [
     'PairwiseSearchAccuracy',
+    'PairwiseTrajectoryAccuracy'
 ]
 
 
@@ -89,7 +90,8 @@ class PairwiseSearchAccuracy(Metric):
             # Decode the target and prediction tensors to strings
             # Mask out the ignored indices for the target
             target_mask = target[i] != self.ignore_index
-            target_tokens = target[i][target_mask]
+            # target_tokens = target[i][target_mask]
+            target_tokens = target[i]
 
             preds_mask = preds[i] != self.ignore_index
             preds_tokens = preds[i][preds_mask]
@@ -98,7 +100,10 @@ class PairwiseSearchAccuracy(Metric):
             pred_str = self.tokenizer.decode(preds_tokens, skip_special_tokens=True)
 
             print(target_str)
-            print(pred_str)
+            print(preds_tokens[-1])
+            print(pred_str[-1])
+            print(target_tokens[-1])
+            # print(pred_str)
             
             # Parse the strings as JSON
             target_json = self._parse_json(target_str)
