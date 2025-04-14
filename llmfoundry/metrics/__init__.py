@@ -15,11 +15,12 @@ from llmfoundry.eval.metrics import (
     InContextLearningMultipleChoiceAccuracy,
 )
 from llmfoundry.metrics.token_acc import TokenAccuracy
-from llmfoundry.metrics.pairwise_acc import PairwiseSearchAccuracy
+from llmfoundry.metrics.pairwise_acc import PairwiseSearchAccuracy, PairwiseTrajectoryAccuracy
 from llmfoundry.registry import metrics
 
 metrics.register('token_accuracy', func=TokenAccuracy)
 metrics.register('pairwise_search_accuracy', func=PairwiseSearchAccuracy)
+metrics.register('pairwise_trajectory_accuracy', func=PairwiseTrajectoryAccuracy)
 metrics.register('lm_accuracy', func=InContextLearningLMAccuracy)
 metrics.register(
     'lm_expected_calibration_error',
@@ -63,6 +64,7 @@ DEFAULT_ENC_DEC_METRICS = [
 __all__ = [
     'TokenAccuracy',
     'PairwiseSearchAccuracy',
+    'PairwiseTrajectoryAccuracy',
     'InContextLearningLMAccuracy',
     'InContextLearningLMExpectedCalibrationError',
     'InContextLearningMCExpectedCalibrationError',

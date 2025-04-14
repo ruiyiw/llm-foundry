@@ -196,7 +196,7 @@ class BaseHuggingFaceModel(HuggingFaceModel):
         train_metrics  = []
         if use_train_metrics:
             for metric in train_metric_names:
-                if metric == "pairwise_search_accuracy":
+                if metric == "pairwise_search_accuracy" or metric == "pairwise_trajectory_accuracy":
                     train_metrics.append(build_metric(metric, {'tokenizer': tokenizer}))
                 else:
                     train_metrics.append(build_metric(metric, {}))
@@ -211,7 +211,7 @@ class BaseHuggingFaceModel(HuggingFaceModel):
 
         eval_metrics  = []
         for metric in eval_metric_names:
-            if metric == "pairwise_search_accuracy":
+            if metric == "pairwise_search_accuracy" or metric == "pairwise_trajectory_accuracy":
                 eval_metrics.append(build_metric(metric, {'tokenizer': tokenizer}))
             else:
                 eval_metrics.append(build_metric(metric, {}))
