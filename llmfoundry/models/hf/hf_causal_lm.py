@@ -75,7 +75,7 @@ class ComposerHFCausalLM(BaseHuggingFaceModel):
         config_overrides: Optional[dict[str, Any]] = None,
         peft_config: Optional[dict[str, Any]] = None,
         use_train_metrics: bool = True,
-        allow_embedding_resizing: bool = False,
+        allow_embedding_resizing: bool = True,
         additional_train_metrics: Optional[list] = None,
         additional_eval_metrics: Optional[list] = None,
         should_save_peft_only: bool = True,
