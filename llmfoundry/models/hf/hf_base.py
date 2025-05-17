@@ -78,7 +78,7 @@ class BaseHuggingFaceModel(HuggingFaceModel):
         use_logits: bool = True,
         shift_labels: bool = False,
         peft_config: Optional[dict[str, Any]] = None,
-        allow_embedding_resizing: bool = True,
+        allow_embedding_resizing: bool = False,
         use_train_metrics: bool = True,
         additional_train_metrics: Optional[list] = None,
         additional_eval_metrics: Optional[list] = None,
